@@ -36,7 +36,9 @@ And the interpreter:
 
     from('Hoa')
     -> import('File.Read')
-    -> import('Compiler.Llk.~')
+    -> import('Compiler.Llk.~');
+
+    from('Hoathis')
     -> import('Lua.Visitor.Interpreter');
 
     $compiler = \Hoa\Compiler\Llk::load(
@@ -44,7 +46,7 @@ And the interpreter:
     );
     $input    = (new \Hoa\File\Read('Input.lua'))->readAll();
     $ast      = $compiler->parse($input);
-    $visitor  = new \Hoa\Lua\Visitor\Interpreter();
+    $visitor  = new \Hoathis\Lua\Visitor\Interpreter();
 
     $visitor->visit($ast);
 
