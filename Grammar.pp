@@ -201,7 +201,7 @@ expression_term:
   | <nil>
   | <false>
   | <true>
-  | <number>
+  | (::minus:: #negative )? <number>
   | <string>
   | <tpoint>
   | variable()
