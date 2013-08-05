@@ -272,7 +272,7 @@ class Interpreter implements \Hoa\Visitor\Visit {
                         return $value;
 
                     case 'number':
-                        return intval($value);
+                        return floatval($value);
 
                     case 'string':
                         return trim($value, '\'"');

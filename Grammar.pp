@@ -97,7 +97,7 @@
 
 // Values.
 %token  string        ("|')(?<!\\\\)[^\1]+\1
-%token  number        \d+
+%token  number        [\-+]?(0|[1-9]\d*)(\.\d+)?([eE][\+\-]?\d+)?
 
 // Misc.
 %token  comment       \-\-
@@ -193,15 +193,15 @@ expression_quinary:
 
 expression_senary:
     expression_term()
-    ( ( ::not:: #not | ::length:: #length | ::minus:: #negative )
+    ( ( ::not:: #not | ::length:: #length | ::minus:: #negative | ::pow:: #power | ::plus::)
       expression() )?
 
 expression_term:
-    ( ::pow:: #power ) expression()
+    (::minus:: #negative | ::plus:: | ::pow:: #power ) expression()
   | <nil>
   | <false>
   | <true>
-  | (::minus:: #negative )? <number>
+  | (::minus:: #negative | ::plus:: | ::pow:: #power)? <number>
   | <string>
   | <tpoint>
   | variable()
