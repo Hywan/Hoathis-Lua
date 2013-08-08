@@ -96,7 +96,7 @@
 %token  point         \.
 
 // Values.
-%token  string        ("|')(?<!\\\\)[^\1]+\1
+%token  string        ("|')(?<!\\\\)[^\1]+?\1
 %token  number        \d+
 
 // Misc.
