@@ -267,7 +267,7 @@ class Interpreter implements \Hoa\Visitor\Visit {
 						$key = $field['key'];
 						$arr[$key] = $value;
 					} else {
-						$arr[] = $value;
+						$arr[] = $value;		// @todo what to do with Lua compatibility : first table element start at 1 (unlike 0 in php)
 					}
 				}
 				return $arr;
