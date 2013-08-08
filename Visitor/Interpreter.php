@@ -259,6 +259,35 @@ class Interpreter implements \Hoa\Visitor\Visit {
                 return $children;
               break;
 
+			case '#table':
+				foreach($children as $child) {
+					$field = $child->accept($this, $handle, $eldnah);
+					$value = $field['value'];
+					if (true === isset($field['key'])) {
+						$key = $field['key'];
+						$arr[$key] = $value;
+					} else {
+						$arr[] = $value;
+					}
+				}
+				return $arr;
+				break;
+
+			case '#field':
+				$nbchildren = count($children);
+
+				switch ($nbchildren) {
+					case 1:
+						return array('value' => $children[0]->accept($this, $handle, $eldnah));
+					case 2:
+						$nameChild = $children[0]->accept($this, $handle, self::AS_SYMBOL);
+						// Test $name must not be 0
+						$valueChild = $children[1]->accept($this, $handle, self::AS_SYMBOL);
+						return array('key' => $nameChild, 'value' => $valueChild);
+						break;
+				}
+				break;
+
             case 'token':
                 $token = $element->getValueToken();
                 $value = $element->getValueValue();
@@ -275,7 +304,7 @@ class Interpreter implements \Hoa\Visitor\Visit {
                         return intval($value);
 
                     case 'string':
-                        return trim($value, '\'"');
+                        return trim($value, '\'"');	//@todo attention ca trim trop!
 
                     default:
                         throw new \Hoathis\Lua\Exception\Interpreter(
