@@ -114,7 +114,7 @@ block:
 
 statement:
     ::semicolon::
-  | variables() ::equal:: expressions() #assignation
+  | variables_set() ::equal:: expressions() #assignation
   | function_call()
   | label()
   | ::break:: #break
@@ -143,16 +143,28 @@ function_name:
     <identifier> ( ::point:: <identifier> )*
     ( ::colon:: <identifier> )?
 
-variables:
+variables_get:
+    variable_get() ( ::comma:: variable_get() )*
+
+variables_set:
     variable() ( ::comma:: variable() )*
+
+variable_get:
+	variable()
+  | ::parenthesis_:: expression() ::_parenthesis::
+  | (
+		::parenthesis_:: expression() ::_parenthesis::
+	)
+	(
+        ::bracket_:: expression() ::_bracket:: #table_access
+      | ::point:: <identifier> #table_access
+	)+
 
 variable:
     <identifier>
-  | ::parenthesis_:: expression() ::_parenthesis::
   | (
         <identifier>
       | function_call()
-      | ::parenthesis_:: expression() ::_parenthesis::
     )
     (
         ::bracket_:: expression() ::_bracket:: #table_access
@@ -204,7 +216,7 @@ expression_term:
   | <number>
   | <string>
   | <tpoint>
-  | variable()
+  | variable_get()
   | function_call()
   | function_definition()
   | table_constructor()

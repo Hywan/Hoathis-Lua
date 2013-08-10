@@ -147,7 +147,6 @@ class Interpreter implements \Hoa\Visitor\Visit {
                             $symbol,
                             $this->_environment
                         );
-
                     $this->_environment[$symbol]->setValue($value);
                 }
               break;
@@ -260,6 +259,7 @@ class Interpreter implements \Hoa\Visitor\Visit {
               break;
 
 			case '#table':
+				$arr = array();
 				foreach($children as $child) {
 					$field = $child->accept($this, $handle, $eldnah);
 					$value = $field['value'];
@@ -286,6 +286,24 @@ class Interpreter implements \Hoa\Visitor\Visit {
 						return array('key' => $nameChild, 'value' => $valueChild);
 						break;
 				}
+				break;
+
+			case '#table_access':
+				if (false === isset($this->_environment[$children[0]->getValueValue()])) {
+					\Hoathis\Lua\Exception\Interpreter(
+                            'Unknown table.', 1, $children[0]->getValueValue());
+				}
+				$var = $this->_environment[$children[0]->getValueValue()]->getValue();
+				$nbchildren = count($children);
+				for ($i = 1; $i < $nbchildren; $i++) {
+					$var = $var[$children[$i]->getValueValue()];
+				}
+				return $var;
+				break;
+
+			case "#function_lambda":
+				throw new \Hoathis\Lua\Exception\Interpreter(
+                    '%s is not yet implemented.', 2, $type);
 				break;
 
             case 'token':
