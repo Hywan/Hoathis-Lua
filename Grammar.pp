@@ -96,7 +96,7 @@
 %token  point         \.
 
 // Values.
-%token  string        ("|')(?<!\\\\)[^\1]+\1
+%token  string        ("|')(.*?)(?<!\\\\)\1
 %token  number        [\-+]?(0|[1-9]\d*)(\.\d+)?([eE][\+\-]?\d+)?
 
 // Misc.
@@ -114,7 +114,7 @@ block:
 
 statement:
     ::semicolon::
-  | variables_set() ::equal:: expressions() #assignation
+  | variables_set() <equal> expressions() #assignation
   | function_call()
   | label()
   | ::break:: #break

@@ -121,19 +121,20 @@ class Interpreter implements \Hoa\Visitor\Visit {
             case '#assignation':
                 $count = count($children);
 
-                if(0 !== $count % 2)
-                    throw new \Hoathis\Lua\Exception\Interpreter(
-                        'Not the same number of symbols and values for the ' .
-                        'affection', 1024);
+                // Search for the equal position in the child list
+                $equalPosition = 0;
+                while ($equalPosition < $count && $children[$equalPosition]->getValueToken() != 'equal') {
+                    $equalPosition++;
+                }
 
-                for($i = $limit = ceil($count / 2); $i < $count; ++$i)
+                for ($i = $equalPosition + 1; $i < $count; ++$i)
                     $children[$i] = $children[$i]->accept(
                         $this,
                         $handle,
                         self::AS_VALUE
                     );
 
-                for($i = 0; $i < $limit; ++$i) {
+                for ($i = 0; $i < $equalPosition; ++$i) {
 
                     $symbol = $children[$i]->accept(
                         $this,
@@ -291,7 +292,7 @@ class Interpreter implements \Hoa\Visitor\Visit {
 			case '#table_access':
 				if (false === isset($this->_environment[$children[0]->getValueValue()])) {
 					\Hoathis\Lua\Exception\Interpreter(
-                            'Unknown table.', 1, $children[0]->getValueValue());
+                            'Symbol %s is not a table', 1, $children[0]->getValueValue());
 				}
 				$var = $this->_environment[$children[0]->getValueValue()]->getValue();
 				$nbchildren = count($children);
