@@ -141,7 +141,7 @@ class Interpreter implements \Hoa\Visitor\Visit {
                         $handle,
                         $eldnah
                     );
-                    $value  = $children[$i + $limit];
+                    $value  = $children[$i + $equalPosition + 1];
 
                     if(!isset($this->_environment[$symbol]))
                         $this->_environment[$symbol] = new \Hoathis\Lua\Model\Variable(
