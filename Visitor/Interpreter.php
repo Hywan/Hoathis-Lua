@@ -149,7 +149,6 @@ class Interpreter implements \Hoa\Visitor\Visit {
                     if ($symbol instanceof \Hoathis\Lua\Model\Value) {
                         if ($value instanceof \Hoathis\Lua\Model\Value) {
                             if ($value->isReference()) {
-                                //$value->copyAsReferenceTo($symbol);
                                 $symbol->setReference($value->getReference());
                             } else {
                                 $symbol->setValue($value->getValue());

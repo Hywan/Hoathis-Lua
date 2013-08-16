@@ -108,9 +108,12 @@ class Value {
     public function setReference($newReference) {
         if ($this->_referenceType === self::REFERENCE) {
             $old = $this->_value->getValue();
-            $this->_value = $newReference;
-            return $old;
+        } else {
+            $old = $this->_value;
         }
+        $this->_value = $newReference;
+        $this->_referenceType = self::REFERENCE;
+        return $old;
     }
 
     public function isReference() {
