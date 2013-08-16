@@ -108,7 +108,11 @@ class Closure extends Environment {
 
 			return $out;
 		} elseif (true === is_callable($this->_body)) {
-			call_user_func_array($this->_body, $arguments);
+            $argValues = array();
+            foreach ($arguments as $arg) {
+                $argValues = $arg->getPHPValue();
+            }
+			call_user_func_array($this->_body, $argValues);
 		} else {
 			throw new \Hoathis\Lua\Exception\Interpreter('Invalid function body', 43, $this->_name);
 		}

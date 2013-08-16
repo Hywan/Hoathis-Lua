@@ -64,8 +64,12 @@ from('Hoathis')
 /**
  * \Hoathis\Lua\Model\Closure
  */
--> import('Lua.Model.Closure');
+-> import('Lua.Model.Closure')
 
+/**
+ * \Hoathis\Lua\Model\Closure
+ */
+-> import('Lua.Model.Value');
 }
 
 namespace Hoathis\Lua\Visitor {
@@ -120,7 +124,6 @@ class Interpreter implements \Hoa\Visitor\Visit {
 
             case '#assignation':
                 $count = count($children);
-
                 // Search for the equal position in the child list
                 $equalPosition = 0;
                 while ($equalPosition < $count && $children[$equalPosition]->getValueToken() != 'equal') {
@@ -143,12 +146,35 @@ class Interpreter implements \Hoa\Visitor\Visit {
                     );
                     $value  = $children[$i + $equalPosition + 1];
 
-                    if(!isset($this->_environment[$symbol]))
-                        $this->_environment[$symbol] = new \Hoathis\Lua\Model\Variable(
-                            $symbol,
-                            $this->_environment
-                        );
-                    $this->_environment[$symbol]->setValue($value);
+                    if ($symbol instanceof \Hoathis\Lua\Model\Value) {
+                        if ($value instanceof \Hoathis\Lua\Model\Value) {
+                            if ($value->isReference()) {
+                                //$value->copyAsReferenceTo($symbol);
+                                $symbol->setReference($value->getReference());
+                            } else {
+                                $symbol->setValue($value->getValue());
+                            }
+                        } else {
+                            $symbol->setValue($value);
+                        }
+                    } else {            // $symbol is an identifier
+                        if(!isset($this->_environment[$symbol])) {
+                            $this->_environment[$symbol] = new \Hoathis\Lua\Model\Variable(
+                                $symbol,
+                                $this->_environment
+                            );
+                        }
+                        if ($value instanceof \Hoathis\Lua\Model\Value) {
+                            if ($value->isReference()) {
+                                //$value->copyAsReferenceTo($this->_environment[$symbol]);
+                                $this->_environment[$symbol]->setValue($value->getReference());
+                            } else {
+                                $this->_environment[$symbol]->setValue($value);
+                            }
+                        } else {
+                            $this->_environment[$symbol]->setValue($value);
+                        }
+                    }
                 }
               break;
 
@@ -162,9 +188,9 @@ class Interpreter implements \Hoa\Visitor\Visit {
                 $child1 = $children[1]->accept($this, $handle, self::AS_VALUE);
 
                 if(null !== $parent && '#substraction' === $parent->getId())
-                    return $child0 - $child1;
+                    return new \Hoathis\Lua\Model\Value($child0->getValue() - $child1->getValue());
 
-                return $child0 + $child1;
+                return new \Hoathis\Lua\Model\Value($child0->getValue() + $child1->getValue());
               break;
 
             case '#substraction':
@@ -175,50 +201,55 @@ class Interpreter implements \Hoa\Visitor\Visit {
                 if(   null            !== $parent
                    && '#substraction' === $parent->getId()
                    && $element        === $parent->getChild(1))
-                    return $child0 - -$child1;
+                    return new \Hoathis\Lua\Model\Value($child0->getValue() - -$child1->getValue());
 
-                return $child0 - $child1;
+                return new \Hoathis\Lua\Model\Value($child0->getValue() - $child1->getValue());
               break;
 
             case '#power':
                 $child0 = $children[0]->accept($this, $handle, self::AS_VALUE);
                 $child1 = $children[1]->accept($this, $handle, self::AS_VALUE);
 
-                return pow($child0, $child1);
+                return new \Hoathis\Lua\Model\Value(pow($child0->getValue(), $child1->getValue()));
               break;
 
             case '#modulo':
                 $child0 = $children[0]->accept($this, $handle, self::AS_VALUE);
                 $child1 = $children[1]->accept($this, $handle, self::AS_VALUE);
 
-                return $child0 % $child1;
+                return new \Hoathis\Lua\Model\Value($child0->getValue() % $child1->getValue());
               break;
 
             case '#multiplication':
                 $child0 = $children[0]->accept($this, $handle, self::AS_VALUE);
                 $child1 = $children[1]->accept($this, $handle, self::AS_VALUE);
 
-                return $child0 * $child1;
+                return new \Hoathis\Lua\Model\Value($child0->getValue() * $child1->getValue());
               break;
 
             case '#division':
                 $child0 = $children[0]->accept($this, $handle, self::AS_VALUE);
                 $child1 = $children[1]->accept($this, $handle, self::AS_VALUE);
 
-                if(0 == $child1)
+                if(0 == $child1->getValue())
                     throw new \Hoathis\Lua\Exception\Interpreter(
                         'Tried to divide %f by zero, impossible.',
-                        0, $child0);
+                        0, $child0->getValue());
 
-                return $child0 / $child1;
+                return new \Hoathis\Lua\Model\Value($child0->getValue() / $child1->getValue());
               break;
 
             case '#function_call':
                 $symbol    = $children[0]->accept($this, $handle, $eldnah);
                 $arguments = $children[1]->accept($this, $handle, $eldnah);
 
-                if(true === function_exists($symbol))
-                    return call_user_func_array($symbol, $arguments);
+                if(true === function_exists($symbol)) {
+                    $argValues = array();
+                    foreach ($arguments as $arg) {
+                        $argValues[] = $arg->getPHPValue();
+                    }
+                   return call_user_func_array($symbol, $argValues);
+                }
 
                 $closure = $this->_environment[$symbol];
 
@@ -263,7 +294,7 @@ class Interpreter implements \Hoa\Visitor\Visit {
 				$arr = array();
 				foreach($children as $child) {
 					$field = $child->accept($this, $handle, $eldnah);
-					$value = $field['value'];
+					$value = $field['value']->getValue();
 					if (true === isset($field['key'])) {
 						$key = $field['key'];
 						$arr[$key] = $value;
@@ -271,7 +302,7 @@ class Interpreter implements \Hoa\Visitor\Visit {
 						$arr[] = $value;		// @todo what to do with Lua compatibility : first table element start at 1 (unlike 0 in php)
 					}
 				}
-				return $arr;
+				return new \Hoathis\Lua\Model\Value($arr, \Hoathis\Lua\Model\Value::REFERENCE);
 				break;
 
 			case '#field':
@@ -283,23 +314,48 @@ class Interpreter implements \Hoa\Visitor\Visit {
 					case 2:
 						$nameChild = $children[0]->accept($this, $handle, self::AS_SYMBOL);
 						// Test $name must not be 0
-						$valueChild = $children[1]->accept($this, $handle, self::AS_SYMBOL);
-						return array('key' => $nameChild, 'value' => $valueChild);
+						$valueChild = $children[1]->accept($this, $handle, self::AS_VALUE);
+						return array('key' => $nameChild, 'value' => new \Hoathis\Lua\Model\Value($valueChild));
 						break;
 				}
 				break;
 
 			case '#table_access':
 				if (false === isset($this->_environment[$children[0]->getValueValue()])) {
-					\Hoathis\Lua\Exception\Interpreter(
-                            'Symbol %s is not a table', 1, $children[0]->getValueValue());
+					throw new \Hoathis\Lua\Exception\Interpreter(
+                            'Symbol %s is unknown', 1, $children[0]->getValueValue());
 				}
-				$var = $this->_environment[$children[0]->getValueValue()]->getValue();
-				$nbchildren = count($children);
-				for ($i = 1; $i < $nbchildren; $i++) {
-					$var = $var[$children[$i]->getValueValue()];
+
+                $var = $this->_environment[$children[0]->getValueValue()]->getValue()->getValue();
+                $symbol = $children[0]->getValueValue();
+                if (false === is_array($var)) {
+					throw new \Hoathis\Lua\Exception\Interpreter(
+                            'Symbol %s is not a table', 1, $symbol);
 				}
-				return $var;
+                $nbchildren = count($children);
+                for ($i = 1; $i < $nbchildren - 1; $i++) {
+                    $symbol .= '.' . $children[$i]->getValueValue();
+                    $parentVar = $var[$children[$i]->getValueValue()];
+                    $var = $parentVar->getValue();
+                    if (false === is_array($var)) {
+                    	throw new \Hoathis\Lua\Exception\Interpreter(
+                             'Symbol %s is not a table', 1, $symbol);
+                    }
+                }
+
+                if (false === array_key_exists($children[$i]->getValueValue(), $var)) {
+                    if ($eldnah === self::AS_VALUE) {
+                        throw new \Hoathis\Lua\Exception\Interpreter(
+                             'Unknown symbol %s in table %s', 13, array($children[$i]->getValueValue(), $symbol));
+                    } else {
+                        $newval = null;
+                        $var[$children[$i]->getValueValue()] = new \Hoathis\Lua\Model\Value($newval);
+                        $parentVar->setValue($var);
+                    }
+                }
+
+                return $var[$children[$i]->getValueValue()];
+
 				break;
 
 			case "#function_lambda":
@@ -320,10 +376,18 @@ class Interpreter implements \Hoa\Visitor\Visit {
                         return $value;
 
                     case 'number':
-                        return floatval($value);
+                        if (intval($value) == $value) {
+                            // parse $value string as int
+                            $value = intval($value);
+                        } else {
+                            // parse $value string as float
+                            $value = floatval($value);
+                        }
+
+                        return new \Hoathis\Lua\Model\Value($value);
 
                     case 'string':
-                        return trim($value, '\'"');	//@todo attention ca trim trop!
+                        return new \Hoathis\Lua\Model\Value(trim($value, '\'"'));	//@todo attention ca trim trop!
 
                     default:
                         throw new \Hoathis\Lua\Exception\Interpreter(
