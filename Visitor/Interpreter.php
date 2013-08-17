@@ -113,6 +113,7 @@ class Interpreter implements \Hoa\Visitor\Visit {
 
         $type     = $element->getId();
         $children = $element->getChildren();
+        $i = 0;
 
         switch($type) {
 
@@ -206,9 +207,9 @@ class Interpreter implements \Hoa\Visitor\Visit {
               break;
 
             case '#power':
+                //print_r($this->_environment->_symbols);
                 $child0 = $children[0]->accept($this, $handle, self::AS_VALUE);
                 $child1 = $children[1]->accept($this, $handle, self::AS_VALUE);
-
                 return new \Hoathis\Lua\Model\Value(pow($child0->getValue(), $child1->getValue()));
               break;
 
@@ -250,15 +251,19 @@ class Interpreter implements \Hoa\Visitor\Visit {
                    return call_user_func_array($symbol, $argValues);
                 }
 
-                $closure = $this->_environment[$symbol];
-
+                if (false === isset($this->_environment[$symbol])) {
+                    throw new \Hoathis\Lua\Exception\Interpreter(
+                        'Unknown symbol %s()', 42, $symbol);
+                }
+                $closure = $this->_environment[$symbol]->getValue()->getValue();
                 if(!($closure instanceof \Hoathis\Lua\Model\Closure))
                     throw new \Hoathis\Lua\Exception\Interpreter(
                         'Symbol %s() is not a function.', 42, $symbol);
 
+                $oldEnvironment = $this->_environment;
                 $this->_environment = $closure;
                 $out                = $closure->call($arguments, $this);
-                $this->_environment = $this->_environment->getParent();
+                $this->_environment = $oldEnvironment;
 
                 return $out;
               break;
@@ -268,19 +273,6 @@ class Interpreter implements \Hoa\Visitor\Visit {
                     $child = $child->accept($this, $handle, self::AS_VALUE);
 
                 return $children;
-
-            case '#function':
-                $symbol     = $children[0]->accept($this, $handle, $eldnah);
-                $parameters = $children[1]->accept($this, $handle, $eldnah);
-                $body       = $children[2];
-                $closure    = new \Hoathis\Lua\Model\Closure(
-                    $symbol,
-                    $this->_environment,
-                    $parameters,
-                    $body
-                );
-                $this->_environment[$symbol] = $closure;
-              break;
 
             case '#parameters':
                 foreach($children as &$child)
@@ -357,9 +349,27 @@ class Interpreter implements \Hoa\Visitor\Visit {
 
 				break;
 
+            case '#function':
+                $symbol     = $children[$i++]->accept($this, $handle, $eldnah);
 			case "#function_lambda":
-				throw new \Hoathis\Lua\Exception\Interpreter(
-                    '%s is not yet implemented.', 2, $type);
+                $parameters = $children[$i++]->accept($this, $handle, self::AS_SYMBOL);
+                $body       = $children[$i];
+                if (false === isset($symbol)) {
+                    $symbol = 'lambda_' . md5(print_r($body, true));
+                }
+                $closure    = new \Hoathis\Lua\Model\Closure(
+                    $symbol,
+                    $this->_environment,
+                    $parameters,
+                    $body
+                );
+                if (2 === $i) {         // it's a function declaration with the symbol
+                    $this->_environment[$symbol] = new \Hoathis\Lua\Model\Variable($symbol, $this->_environment);
+                    $this->_environment[$symbol]->setValue(new \Hoathis\Lua\Model\Value($closure));
+                    return $this->_environment[$symbol];
+                } else {                // it's a lambda function
+                    return new \Hoathis\Lua\Model\Value($closure);//, \Hoathis\Lua\Model\Value::REFERENCE);
+                }
 				break;
 
             case 'token':
@@ -369,9 +379,9 @@ class Interpreter implements \Hoa\Visitor\Visit {
                 switch($token) {
 
                     case 'identifier':
-                        if(self::AS_VALUE === $eldnah)
+                        if(self::AS_VALUE === $eldnah) {
                             return $this->_environment[$value]->getValue();
-
+                        }
                         return $value;
 
                     case 'number':

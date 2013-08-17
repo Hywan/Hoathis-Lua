@@ -75,28 +75,51 @@ class Environment implements \ArrayAccess {
     }
 
     public function offsetExists ( $symbol ) {
-
-        return array_key_exists($symbol, $this->_symbols);
+        $foundInLocal = array_key_exists($symbol, $this->_symbols);
+        if (false === $foundInLocal && $this->_parent instanceof Environment) {
+            return $this->_parent->offsetExists($symbol);
+        }
+        return $foundInLocal;
     }
 
     public function offsetGet ( $symbol ) {
-
-        if(false === $this->offsetExists($symbol))
-            return null;
-
-        return $this->_symbols[$symbol];
+        if (true === array_key_exists($symbol, $this->_symbols)) {
+            return $this->_symbols[$symbol];
+        } else {
+            if ($this->_parent instanceof Environment) {
+                return $this->_parent->offsetGet($symbol);
+            } else {
+                return null;
+            }
+        }
     }
 
-    public function offsetSet ( $symbol, $value ) {
-
+    public function setLocal($symbol, $value) {
         $this->_symbols[$symbol] = $value;
+    }
 
+
+    public function offsetSet ( $symbol, $value ) {
+        if (false === array_key_exists($symbol, $this->_symbols)
+                && $this->_parent instanceof Environment
+                && $this->_parent->offsetExists($symbol)) {
+            $this->_parent->offsetSet($symbol, $value);
+        } else {
+            $this->_symbols[$symbol] = $value;
+        }
         return $this;
     }
 
     public function offsetUnset ( $symbol ) {
-
-        unset($this->_symbols[$symbol]);
+        if (array_key_exists($symbol, $this->_symbols)) {
+            unset($this->_symbols[$symbol]);
+        } else {
+            if ($this->_parent instanceof Environment) {
+                if ($this->_parent->offsetExists($symbol)) {
+                    $this->_parent->offsetUnset($symbol, $value);
+                }
+            }
+        }
 
         return;
     }
