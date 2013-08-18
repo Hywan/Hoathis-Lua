@@ -372,6 +372,8 @@ class Interpreter implements \Hoa\Visitor\Visit {
 
 				break;
 
+            case '#local_function':
+                $local_function = true;
             case '#function':
                 $symbol     = $children[$i++]->accept($this, $handle, $eldnah);
 			case "#function_lambda":
@@ -387,7 +389,11 @@ class Interpreter implements \Hoa\Visitor\Visit {
                     $body
                 );
                 if (2 === $i) {         // it's a function declaration with the symbol
-                    $this->_environment[$symbol] = new \Hoathis\Lua\Model\Variable($symbol, $this->_environment);
+                    if (isset($local_function)) {
+                        $this->_environment->localSet($symbol, new \Hoathis\Lua\Model\Variable($symbol, $this->_environment));
+                    } else {
+                        $this->_environment[$symbol] = new \Hoathis\Lua\Model\Variable($symbol, $this->_environment);
+                    }
                     $this->_environment[$symbol]->setValue(new \Hoathis\Lua\Model\Value($closure));
                     return $this->_environment[$symbol];
                 } else {                // it's a lambda function
