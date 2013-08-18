@@ -95,6 +95,20 @@ class Interpreter implements \Hoa\Visitor\Visit {
     public function __construct ( ) {
 
         $this->_environment = new \Hoathis\Lua\Model\Environment('_G');
+        // Temp declaration for debug
+        $this->_environment['print'] = new \Hoathis\Lua\Model\Variable('print', $this->_environment);
+        $this->_environment['print']->setValue(new \Hoathis\Lua\Model\Value(new \Hoathis\Lua\Model\Closure('print', $this->_environment, array(), function () {
+            $args = func_get_args();
+            $sep = '';
+            foreach ($args as $arg) {
+                if (true === is_null($arg)) {
+                    $arg = 'nil';
+                }
+                echo $sep, $arg;
+                $sep = "\t";
+            }
+            echo PHP_EOL;
+        })));
 
         return;
     }
@@ -123,6 +137,8 @@ class Interpreter implements \Hoa\Visitor\Visit {
                     $child->accept($this, $handle, $eldnah);
               break;
 
+            case '#assignation_local':
+                $assignation_local = true;
             case '#assignation':
                 $count = count($children);
                 // Search for the equal position in the child list
@@ -147,7 +163,7 @@ class Interpreter implements \Hoa\Visitor\Visit {
                     );
                     $value  = $children[$i + $equalPosition + 1];
 
-                    if ($symbol instanceof \Hoathis\Lua\Model\Value) {
+                    if ($symbol instanceof \Hoathis\Lua\Model\Value) {      // use for table access
                         if ($value instanceof \Hoathis\Lua\Model\Value) {
                             if ($value->isReference()) {
                                 $symbol->setReference($value->getReference());
@@ -158,7 +174,12 @@ class Interpreter implements \Hoa\Visitor\Visit {
                             $symbol->setValue($value);
                         }
                     } else {            // $symbol is an identifier
-                        if(!isset($this->_environment[$symbol])) {
+                        if (isset($assignation_local) && !$this->_environment->localExists($symbol)) {
+                            $this->_environment->localSet($symbol, new \Hoathis\Lua\Model\Variable(
+                                $symbol,
+                                $this->_environment
+                            ));
+                        } elseif(!isset($this->_environment[$symbol])) {
                             $this->_environment[$symbol] = new \Hoathis\Lua\Model\Variable(
                                 $symbol,
                                 $this->_environment
@@ -269,14 +290,16 @@ class Interpreter implements \Hoa\Visitor\Visit {
               break;
 
             case '#arguments':
-                foreach($children as &$child)
+                foreach($children as &$child) {
                     $child = $child->accept($this, $handle, self::AS_VALUE);
+                }
 
                 return $children;
 
             case '#parameters':
-                foreach($children as &$child)
+                foreach($children as &$child) {
                     $child = $child->accept($this, $handle, $eldnah);
+                }
 
                 return $children;
               break;

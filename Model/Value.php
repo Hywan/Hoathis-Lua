@@ -52,7 +52,7 @@ namespace Hoathis\Lua\Model {
  *
  * Variable.
  *
- * @author     Ivan Enderlin <ivan.enderlin@hoa-project.net>
+ * @author     Guislain Duthieuw <guislain.duthieuw@gmail.com>
  * @copyright  Copyright © 2007-2013 Ivan Enderlin.
  * @license    New BSD License
  */
@@ -132,14 +132,6 @@ class Value {
             return $value;
         }
     }
-
-//    public function copyAsReferenceTo($dest) {
-//        if ($dest instanceof Value) {
-//            $dest->setValue($this->_value);
-//        } else {
-//            $dest->setValue($this);
-//        }
-//    }
 }
 
 }

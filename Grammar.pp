@@ -131,7 +131,7 @@ statement:
   | ::for:: names() ::in:: expressions() ::do:: block() ::end:: #for_in_loop
   | ::function:: function_name() function_body() #function
   | ::local:: ::function:: <identifier> function_body() #local_function
-  | ::local:: names() ( ::equal:: expressions() ) #assignation_local
+  | ::local:: names() ( <equal> expressions() ) #assignation_local
 
 return_statement:
     ::return:: expressions()? ::comma::? #return

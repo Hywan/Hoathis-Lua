@@ -77,7 +77,7 @@ class Closure extends Environment {
 
         foreach($parameters as $parameter) {
 
-            $this->setLocal($parameter, new Variable($parameter, $this));
+            $this->localSet($parameter, new Variable($parameter, $this));
             $this->_parameters[$parameter] = &$this[$parameter];
         }
 
@@ -109,7 +109,7 @@ class Closure extends Environment {
 		} elseif (true === is_callable($this->_body)) {
             $argValues = array();
             foreach ($arguments as $arg) {
-                $argValues = $arg->getPHPValue();
+                $argValues[] = $arg->getPHPValue();
             }
 			call_user_func_array($this->_body, $argValues);
 		} else {
