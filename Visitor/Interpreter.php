@@ -264,22 +264,26 @@ class Interpreter implements \Hoa\Visitor\Visit {
                 $symbol    = $children[0]->accept($this, $handle, $eldnah);
                 $arguments = $children[1]->accept($this, $handle, $eldnah);
 
-                if(true === function_exists($symbol)) {
-                    $argValues = array();
-                    foreach ($arguments as $arg) {
-                        $argValues[] = $arg->getPHPValue();
+                if ($symbol instanceof \Hoathis\Lua\Model\Value) {
+                    $closure = $symbol->getValue();
+                } else {
+                    if (true === function_exists($symbol)) {
+                        $argValues = array();
+                        foreach ($arguments as $arg) {
+                            $argValues[] = $arg->getPHPValue();
+                        }
+                       return call_user_func_array($symbol, $argValues);
                     }
-                   return call_user_func_array($symbol, $argValues);
-                }
 
-                if (false === isset($this->_environment[$symbol])) {
-                    throw new \Hoathis\Lua\Exception\Interpreter(
-                        'Unknown symbol %s()', 42, $symbol);
+                    if (false === isset($this->_environment[$symbol])) {
+                        throw new \Hoathis\Lua\Exception\Interpreter(
+                            'Unknown symbol %s()', 42, $symbol);
+                    }
+                    $closure = $this->_environment[$symbol]->getValue()->getValue();
+                    if(!($closure instanceof \Hoathis\Lua\Model\Closure))
+                        throw new \Hoathis\Lua\Exception\Interpreter(
+                            'Symbol %s() is not a function.', 42, $symbol);
                 }
-                $closure = $this->_environment[$symbol]->getValue()->getValue();
-                if(!($closure instanceof \Hoathis\Lua\Model\Closure))
-                    throw new \Hoathis\Lua\Exception\Interpreter(
-                        'Symbol %s() is not a function.', 42, $symbol);
 
                 $oldEnvironment = $this->_environment;
                 $this->_environment = $closure;
@@ -427,6 +431,8 @@ class Interpreter implements \Hoa\Visitor\Visit {
                     case 'string':
                         return new \Hoathis\Lua\Model\Value(trim($value, '\'"'));	//@todo attention ca trim trop!
 
+                    case 'nil':
+                        return new \Hoathis\Lua\Model\Value(null);
                     default:
                         throw new \Hoathis\Lua\Exception\Interpreter(
                             'Token %s is not yet implemented.', 1, $token);

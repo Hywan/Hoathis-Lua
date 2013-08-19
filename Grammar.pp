@@ -43,28 +43,28 @@
 %skip   blank         [\s\n]+
 
 // Keywords.
-%token  and           and
-%token  break         break
-%token  do            do
-%token  else          else
-%token  elseif        elseif
-%token  end           end
-%token  false         false
-%token  for           for
-%token  function      function
-%token  goto          goto
-%token  if            if
-%token  in            in
-%token  local         local
-%token  nil           nil
-%token  not           not
-%token  or            or
-%token  repeat        repeat
-%token  return        return
-%token  then          then
-%token  true          true
-%token  until         until
-%token  while         while
+%token  and           and\W
+%token  break         break\W
+%token  do            do\W
+%token  else          else\W
+%token  elseif        elseif\W
+%token  end           end\W
+%token  false         false\W
+%token  for           for\s
+%token  function      function\W
+%token  goto          goto\s
+%token  if            if\W
+%token  in            in\s
+%token  local         local\s
+%token  nil           nil\W
+%token  not           not\W
+%token  or            or\W
+%token  repeat        repeat\W
+%token  return        return\W
+%token  then          then\s
+%token  true          true\W
+%token  until         until\W
+%token  while         while\W
 
 // Operators.
 %token  plus          \+
@@ -222,12 +222,16 @@ expression_term:
   | table_constructor()
 
 #function_call:
-    ( <identifier> | ::parenthesis_:: expression() ::_parenthesis:: )
-    (
-        ::bracket_:: expression() ::_bracket:: #table_access
-      | ::point:: ( <identifier> | function_call() ) #table_access
-    )*
-    ( ::colon:: <identifier> )? arguments()
+    (<identifier>
+	 | ::parenthesis_:: expression() ::_parenthesis::
+     | table_access_function())
+     arguments()
+
+table_access_function:
+   ( <identifier> | ::parenthesis_:: expression() ::_parenthesis:: )
+	(	::bracket_:: expression() ::_bracket:: #table_access
+		| ::point:: ( <identifier> | function_call() ) #table_access )*
+	( ::colon:: <identifier> #table_access )?
 
 #arguments:
     ::parenthesis_:: expressions()? ::_parenthesis::
