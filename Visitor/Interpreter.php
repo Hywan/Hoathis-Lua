@@ -127,7 +127,6 @@ class Interpreter implements \Hoa\Visitor\Visit {
 
         $type     = $element->getId();
         $children = $element->getChildren();
-        $i = 0;
 
         switch($type) {
 
@@ -379,20 +378,28 @@ class Interpreter implements \Hoa\Visitor\Visit {
             case '#local_function':
                 $local_function = true;
             case '#function':
-                $symbol     = $children[$i++]->accept($this, $handle, $eldnah);
+                $symbol     = reset($children)->accept($this, $handle, $eldnah);
 			case "#function_lambda":
-                $parameters = $children[$i++]->accept($this, $handle, self::AS_SYMBOL);
-                $body       = $children[$i];
+                $nbchildren = count($children);
+                $body       = $children[$nbchildren-1];
+                if ($nbchildren > 2) {
+                    $parameters = $children[1]->accept($this, $handle, self::AS_SYMBOL);
+                }
+                if (false === isset($parameters)) {
+                    $parameters = array();
+                }
                 if (false === isset($symbol)) {
-                    $symbol = 'lambda_' . md5(print_r($body, true));
+                    $closuresymbol = 'lambda_' . md5(print_r($body, true));
+                } else {
+                    $closuresymbol = $symbol;
                 }
                 $closure    = new \Hoathis\Lua\Model\Closure(
-                    $symbol,
+                    $closuresymbol,
                     $this->_environment,
                     $parameters,
                     $body
                 );
-                if (2 === $i) {         // it's a function declaration with the symbol
+                if (true === isset($symbol)) {         // it's a function declaration with the symbol
                     if (isset($local_function)) {
                         $this->_environment->localSet($symbol, new \Hoathis\Lua\Model\Variable($symbol, $this->_environment));
                     } else {

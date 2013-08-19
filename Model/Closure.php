@@ -93,10 +93,12 @@ class Closure extends Environment {
 
 				$argument = current($arguments);
 
-				if(false === $argument)
-					break;
+				if(false === $argument) {
+                    $parameter->setValue(new Value(null));
+                } else {
+    				$parameter->setValue($argument);
+                }
 
-				$parameter->setValue($argument);
 
 				next($arguments);
 			}
