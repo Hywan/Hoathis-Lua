@@ -412,6 +412,16 @@ class Interpreter implements \Hoa\Visitor\Visit {
                 }
 				break;
 
+            case '#and':
+                $leftVal    = $children[0]->accept($this, $handle, $eldnah);
+                $rightVal   = $children[1]->accept($this, $handle, $eldnah);
+                if (self::valueAsBool($leftVal->getValue())) {
+                    return $rightVal;
+                } else {
+                    return new \Hoathis\Lua\Model\Value(false);
+                }
+                break;
+
             case 'token':
                 $token = $element->getValueToken();
                 $value = $element->getValueValue();
@@ -440,6 +450,13 @@ class Interpreter implements \Hoa\Visitor\Visit {
 
                     case 'nil':
                         return new \Hoathis\Lua\Model\Value(null);
+
+                    case 'false':
+                        return new \Hoathis\Lua\Model\Value(false);
+
+                    case 'true':
+                        return new \Hoathis\Lua\Model\Value(true);
+
                     default:
                         throw new \Hoathis\Lua\Exception\Interpreter(
                             'Token %s is not yet implemented.', 1, $token);
@@ -449,6 +466,14 @@ class Interpreter implements \Hoa\Visitor\Visit {
             default:
                 throw new \Hoathis\Lua\Exception\Interpreter(
                     '%s is not yet implemented.', 2, $type);
+        }
+    }
+
+    public static function valueAsBool($val) {
+        if (true === is_null($val) || false === $val) {
+            return false;
+        } else {
+            return true;
         }
     }
 
