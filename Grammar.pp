@@ -43,28 +43,28 @@
 %skip   blank         [\s\n]+
 
 // Keywords.
-%token  and           and\W
-%token  break         break\W
-%token  do            do\W
-%token  else          else\W
-%token  elseif        elseif\W
-%token  end           end\W
-%token  false         false\W
-%token  for           for\s
-%token  function      function\W
-%token  goto          goto\s
-%token  if            if\W
-%token  in            in\s
-%token  local         local\s
-%token  nil           nil\W
-%token  not           not\W
-%token  or            or\W
-%token  repeat        repeat\W
-%token  return        return\W
-%token  then          then\s
-%token  true          true\W
-%token  until         until\W
-%token  while         while\W
+%token  and           and(?=\W)
+%token  break         break(?=\W)
+%token  do            do(?=\W)
+%token  elseif        elseif(?=\W)
+%token  else          else(?=\W)
+%token  end           end(?=\W)
+%token  false         false(?=\W)
+%token  for           for(?=\W)
+%token  function      function(?=\W)
+%token  goto          goto(?=\W)
+%token  if            if(?=\W)
+%token  in            in(?=\W)
+%token  local         local(?=\W)
+%token  nil           nil(?=\W)
+%token  not           not(?=\W)
+%token  or            or(?=\W)
+%token  repeat        repeat(?=\W)
+%token  return        return(?=\W)
+%token  then          then(?=\W)
+%token  true          true(?=\W)
+%token  until         until(?=\W)
+%token  while         while(?=\W)
 
 // Operators.
 %token  plus          \+
@@ -156,7 +156,7 @@ variable_get:
 		::parenthesis_:: expression() ::_parenthesis::
 	)
 	(
-        ::bracket_:: expression() ::_bracket:: #table_access
+        <bracket_> expression() ::_bracket:: #table_access
       | ::point:: <identifier> #table_access
 	)+
 
@@ -167,7 +167,7 @@ variable:
       | function_call()
     )
     (
-        ::bracket_:: expression() ::_bracket:: #table_access
+        <bracket_> expression() ::_bracket:: #table_access
       | ::point:: <identifier> #table_access
     )+
 
@@ -209,7 +209,7 @@ expression_senary:
       expression() )?
 
 expression_term:
-    (::minus:: #negative | ::plus:: | ::pow:: #power ) expression()
+    (::minus:: #negative | ::plus:: | ::pow:: #power | ::not:: #not ) expression()
   | <nil>
   | <false>
   | <true>
@@ -221,6 +221,14 @@ expression_term:
   | function_definition()
   | table_constructor()
 
+//#function_call:
+//    ( <identifier> | ::parenthesis_:: expression() ::_parenthesis:: )
+//    (
+//        <bracket_> expression() ::_bracket:: #table_access
+//      | ::point:: ( <identifier> | function_call() ) #table_access
+//    )*
+//    ( ::colon:: <identifier> )? arguments()
+
 #function_call:
     (<identifier>
 	 | ::parenthesis_:: expression() ::_parenthesis::
@@ -229,7 +237,7 @@ expression_term:
 
 table_access_function:
    ( <identifier> | ::parenthesis_:: expression() ::_parenthesis:: )
-	(	::bracket_:: expression() ::_bracket:: #table_access
+	(	(<bracket_> expression() ::_bracket:: #byval) #table_access
 		| ::point:: ( <identifier> | function_call() ) #table_access )*
 	( ::colon:: <identifier> #table_access )?
 
@@ -259,6 +267,6 @@ fields:
     ( ::comma:: | ::semicolon:: )?
 
 #field:
-    ::bracket_:: expression() ::_bracket:: ::equal:: expression()
-  | <identifier> ::equal:: expression()
-  | expression()
+  (  ::bracket_:: expression() ::_bracket:: ::equal:: #field_val
+  | <identifier> ::equal:: #field_name)?
+  expression()

@@ -87,7 +87,7 @@ class Closure extends Environment {
     }
 
     public function call ( Array $arguments, \Hoa\Visitor\Visit $interpreter ) {
-    	if ($this->_body instanceof \Hoa\Compiler\Llk\TreeNode) {
+    	if ($this->getBody() instanceof \Hoa\Compiler\Llk\TreeNode) {
 
 			foreach($this->_parameters as $parameter) {
 
@@ -99,12 +99,10 @@ class Closure extends Environment {
     				$parameter->setValue($argument);
                 }
 
-
 				next($arguments);
 			}
 
 			$out = $this->getBody()->accept($interpreter);
-
 			foreach($this->_parameters as $parameter)
 				$parameter->setValue(new Value(null));
 			return $out;
