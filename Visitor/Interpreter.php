@@ -69,7 +69,15 @@ from('Hoathis')
 /**
  * \Hoathis\Lua\Model\Closure
  */
--> import('Lua.Model.Value');
+-> import('Lua.Model.Value')
+/**
+ * \Hoathis\Lua\Model\Closure
+ */
+-> import('Lua.Model.ReturnedValue')
+/**
+ * \Hoathis\Lua\Model\Closure
+ */
+-> import('Lua.Model.ValueGroup');
 }
 
 namespace Hoathis\Lua\Visitor {
@@ -101,6 +109,7 @@ class Interpreter implements \Hoa\Visitor\Visit {
             $args = func_get_args();
             $sep = '';
             foreach ($args as $arg) {
+                echo $sep;
                 if (true === is_null($arg)) {
                     echo 'nil';
                 } elseif (false === $arg) {
@@ -108,7 +117,7 @@ class Interpreter implements \Hoa\Visitor\Visit {
                 } elseif (true === is_array($arg)) {
                     echo 'array';
                 } else {
-                    echo $sep, $arg;
+                    echo $arg;
                 }
                 $sep = "\t";
             }
@@ -150,28 +159,30 @@ class Interpreter implements \Hoa\Visitor\Visit {
                 $assignation_local = true;
             case '#assignation':
                 $count = count($children);
-                // Search for the equal position in the child list
-                $equalPosition = 0;
-                while ($equalPosition < $count && $children[$equalPosition]->getValueToken() != 'equal') {
-                    $equalPosition++;
+                $leftVar = $children[0]->accept($this, $handle,$eldnah);
+                $rightVar = $children[1]->accept($this, $handle,self::AS_VALUE);
+
+                if ($leftVar instanceof \Hoathis\Lua\Model\ValueGroup) {
+                    $symbols = $leftVar->getValue();
+                } else {
+                    $symbols = array($leftVar);
                 }
 
-                for ($i = $equalPosition + 1; $i < $count; ++$i)
-                    $children[$i] = $children[$i]->accept(
-                        $this,
-                        $handle,
-                        self::AS_VALUE
-                    );
+                if ($rightVar instanceof \Hoathis\Lua\Model\ValueGroup) {
+                    $values = $rightVar->getValue();
+                } else {
+                    $values = array($rightVar);
+                }
 
-                for ($i = 0; $i < $equalPosition; ++$i) {
-
-                    $symbol = $children[$i]->accept(
-                        $this,
-                        $handle,
-                        $eldnah
-                    );
-                    $value  = $children[$i + $equalPosition + 1];
-
+                $nbSymbols = count($symbols);
+                $nbValues = count($values);
+                for ($i = 0; $i < $nbSymbols; $i++) {
+                    $symbol = $symbols[$i];
+                    if ($i < $nbValues) {
+                        $value = $values[$i];
+                    } else {
+                        $value = new \Hoathis\Lua\Model\Value(null);
+                    }
                     if ($symbol instanceof \Hoathis\Lua\Model\Value) {      // use for table access
                         if ($value instanceof \Hoathis\Lua\Model\Value) {
                             if ($value->isReference()) {
@@ -206,7 +217,16 @@ class Interpreter implements \Hoa\Visitor\Visit {
                         }
                     }
                 }
-              break;
+
+                break;
+
+            case '#expression_group':
+                $group = new \Hoathis\Lua\Model\ValueGroup(null);
+                foreach ($children as $child) {
+                    $group->addValue($child->accept($this, $handle,$eldnah));
+                }
+                return $group;
+                break;
 
             case '#negative':
                 return -($children[0]->accept($this, $handle, self::AS_VALUE));
@@ -351,8 +371,11 @@ class Interpreter implements \Hoa\Visitor\Visit {
                 break;
 
             case '#arguments':
-                foreach($children as &$child) {
-                    $child = $child->accept($this, $handle, self::AS_VALUE);
+                if (false === empty($children)) {
+                    $children[0] = $children[0]->accept($this, $handle, self::AS_VALUE);
+                    if ($children[0] instanceof \Hoathis\Lua\Model\ValueGroup) {
+                        $children = $children[0]->getValue();
+                    }
                 }
 
                 return $children;

@@ -114,7 +114,7 @@ block:
 
 statement:
     ::semicolon::
-  | variables_set() <equal> expressions() #assignation
+  | variables_set() ::equal:: expressions() #assignation
   | function_call()
   | label()
   | ::break:: #break
@@ -131,10 +131,10 @@ statement:
   | ::for:: names() ::in:: expressions() ::do:: block() ::end:: #for_in_loop
   | ::function:: function_name() function_body() #function
   | ::local:: ::function:: <identifier> function_body() #local_function
-  | ::local:: names() ( <equal> expressions() ) #assignation_local
+  | ::local:: names() ( ::equal:: expressions() ) #assignation_local
 
 return_statement:
-    ::return:: expressions()? ::comma::? #return
+    ::return:: expressions()? ::semicolon::? #return
 
 #label:
     ::dcolon:: <identifier> ::dcolon::
@@ -144,10 +144,12 @@ function_name:
     ( ::colon:: <identifier> )?
 
 variables_get:
-    variable_get() ( ::comma:: variable_get() )*
+	variable_get()
+  | (variable_get() ( ::comma:: variable_get() )* #expression_group)
 
 variables_set:
-    variable() ( ::comma:: variable() )*
+    variable()
+	| ( variable() ( ::comma:: variable() )* #expression_group)
 
 variable_get:
 	variable()
@@ -172,10 +174,12 @@ variable:
     )+
 
 names:
-    <identifier> ( ::comma:: <identifier> )*
+    <identifier>
+  | <identifier> ( ::comma:: <identifier> )* #expression_group
 
 expressions:
-    expression() ( ::comma:: expression() )*
+	expression()
+  | expression() ( ::comma:: expression() )* #expression_group
 
 expression:
     expression_primary()

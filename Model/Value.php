@@ -79,12 +79,17 @@ class Value {
     }
 
     public function setValue ( $value ) {
+        if ($value instanceof self) {
+            $val = $value->getValue();
+        } else {
+            $val = $value;
+        }
         if ($this->_referenceType === self::REFERENCE) {
             $old          = $this->_value->getValue();
-            $this->_value->setValue($value);
+            $this->_value->setValue($val);
         } else {
             $old          = $this->_value;
-            $this->_value = $value;
+            $this->_value = $val;
         }
         return $old;
     }
