@@ -68,6 +68,7 @@
 
 // Operators.
 %token  plus          \+
+%token  comment       \-\-[^\n]*
 %token  minus         \-
 %token  times         \*
 %token  div           /
@@ -100,26 +101,24 @@
 %token  number        [\-+]?(0|[1-9]\d*)(\.\d+)?([eE][\+\-]?\d+)?
 
 // Misc.
-%token  comment       \-\-
 
 // Identifier.
 %token  identifier    [\w_]([\w\d_]+)?
 
 
-#chunk:
+chunk:
     block()
 
 block:
-    statement()* return_statement()?
+    statement()* return_statement()? #block
 
 statement:
     ::semicolon::
   | variables_set() ::equal:: expressions() #assignation
   | function_call()
   | label()
-  | ::break:: #break
   | ::goto:: <identifier> #goto
-  | ::do:: block() ::end:: #block
+  | ::do:: block() ::end::
   | ::while:: expression() ::do:: block() ::end:: #while_loop
   | ::repeat:: block() ::until:: expression() #do_while_loop
   |   ::if::   expression() ::then:: block()
@@ -135,6 +134,7 @@ statement:
 
 return_statement:
     ::return:: expressions()? ::semicolon::? #return
+  | ::break:: ::semicolon::? #break
 
 #label:
     ::dcolon:: <identifier> ::dcolon::

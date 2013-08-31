@@ -103,8 +103,9 @@ class Closure extends Environment {
 			}
 
 			$out = $this->getBody()->accept($interpreter);
-			foreach($this->_parameters as $parameter)
+			foreach($this->_parameters as $parameter) {
 				$parameter->setValue(new Value(null));
+            }
 			return $out;
 		} elseif (true === is_callable($this->_body)) {
             $argValues = array();

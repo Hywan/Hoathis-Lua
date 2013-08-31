@@ -67,15 +67,19 @@ from('Hoathis')
 -> import('Lua.Model.Closure')
 
 /**
- * \Hoathis\Lua\Model\Closure
+ * \Hoathis\Lua\Model\Value
  */
 -> import('Lua.Model.Value')
 /**
- * \Hoathis\Lua\Model\Closure
+ * \Hoathis\Lua\Model\ReturnedValue
  */
 -> import('Lua.Model.ReturnedValue')
 /**
- * \Hoathis\Lua\Model\Closure
+ * \Hoathis\Lua\Model\BreakStatement
+ */
+-> import('Lua.Model.BreakStatement')
+/**
+ * \Hoathis\Lua\Model\ValueGroup
  */
 -> import('Lua.Model.ValueGroup');
 }
@@ -144,13 +148,19 @@ class Interpreter implements \Hoa\Visitor\Visit {
 
         switch($type) {
 
+            case '#ignored':
+                break;
+
             case '#chunk':
             case '#function_body':
                 foreach($children as $child) {
-                    if ('#return' !== $child->getId()) {
-                        $child->accept($this, $handle, $eldnah);
-                    } else {
-                        return $child->accept($this, $handle, $eldnah);
+                    $execValue = $child->accept($this, $handle, $eldnah);
+                    if ($execValue instanceof \Hoathis\Lua\Model\ReturnedValue) {
+                        if ($type === '#chunk') {
+                            return $execValue->getValue()->getPHPValue();
+                        } else {
+                            return $execValue->getValue();
+                        }
                     }
                 }
               break;
@@ -158,6 +168,9 @@ class Interpreter implements \Hoa\Visitor\Visit {
             case '#assignation_local':
                 $assignation_local = true;
             case '#assignation':
+                if (false === isset($assignation_local)) {
+                    $assignation_local = false;
+                }
                 $count = count($children);
                 $leftVar = $children[0]->accept($this, $handle,$eldnah);
                 $rightVar = $children[1]->accept($this, $handle,self::AS_VALUE);
@@ -194,27 +207,7 @@ class Interpreter implements \Hoa\Visitor\Visit {
                             $symbol->setValue($value);
                         }
                     } else {            // $symbol is an identifier
-                        if (isset($assignation_local) && !$this->_environment->localExists($symbol)) {
-                            $this->_environment->localSet($symbol, new \Hoathis\Lua\Model\Variable(
-                                $symbol,
-                                $this->_environment
-                            ));
-                        } elseif(!isset($this->_environment[$symbol])) {
-                            $this->_environment[$symbol] = new \Hoathis\Lua\Model\Variable(
-                                $symbol,
-                                $this->_environment
-                            );
-                        }
-                        if ($value instanceof \Hoathis\Lua\Model\Value) {
-                            if ($value->isReference()) {
-                                //$value->copyAsReferenceTo($this->_environment[$symbol]);
-                                $this->_environment[$symbol]->setValue($value->getReference());
-                            } else {
-                                $this->_environment[$symbol]->setValue($value);
-                            }
-                        } else {
-                            $this->_environment[$symbol]->setValue($value);
-                        }
+                        $this->setValueToSymbol($symbol, $value, $assignation_local);
                     }
                 }
 
@@ -366,7 +359,7 @@ class Interpreter implements \Hoa\Visitor\Visit {
             case '#return':
                 if (false === empty($children)) {
                     $val = $children[0]->accept($this, $handle, $eldnah);
-                    return $val;
+                    return new \Hoathis\Lua\Model\ReturnedValue($val);
                 }
                 break;
 
@@ -555,25 +548,117 @@ class Interpreter implements \Hoa\Visitor\Visit {
                 // loop for each if/elseif
                 while (false === $ifDone) {
                     $conditions = $children[$conditionPos]->accept($this, $handle, $eldnah);
-                    for ($elsePos = $conditionPos + 1; $elsePos < $nbchildren - 2 ;) {
-                        $token = $children[$elsePos]->getValueToken();
-                        if ('else' === $token || 'elseif' === $token) break;
-                        $elsePos++;
-                    }
                     if (true === self::valueAsBool($conditions->getValue())) {
-                        for ($i = $conditionPos + 1; $i < $elsePos; $i++) {
-                            $children[$i]->accept($this, $handle, $eldnah);
-                        }
-                        $ifDone = true;
-                    } elseif ('elseif' === $token) {
-                        $conditionPos = $elsePos + 1;
-                    } else {
-                        for ($i = $elsePos+1; $i < $nbchildren; $i++) {
-                            $children[$i]->accept($this, $handle, $eldnah);
+                        $val = $children[$conditionPos + 1]->accept($this, $handle, $eldnah);
+                        if ($val instanceof \Hoathis\Lua\Model\ReturnedValue
+                                || $val instanceof \Hoathis\Lua\Model\BreakStatement) {
+                            return $val;
                         }
                         $ifDone = true;
                     }
+                    if ($conditionPos + 3 < $nbchildren) {      // there is an else or elseif part
+                        if ('elseif' === $children[$conditionPos + 2]->getValueToken()) {
+                            $conditionPos = $conditionPos + 3;  // condition of elseif
+                        } else {            // the else statement
+                            $val = $children[$conditionPos + 3]->accept($this, $handle, $eldnah);
+                            if ($val instanceof \Hoathis\Lua\Model\ReturnedValue
+                                    || $val instanceof \Hoathis\Lua\Model\BreakStatement) {
+                                return $val;
+                            }
+                            $ifDone = true;
+                        }
+                    } else {        // nothing more to do
+                        $ifDone = true;
+                    }
+                }
+                break;
 
+            case '#while_loop':
+            case '#do_while_loop':
+                $nbchildren = count($children);
+                if ('#while_loop' === $type) {
+                    $conditionPos = 0;                      // in while_loop condition is at the beginning
+                    $firstStmt = 1;
+                    $lastStmt = $nbchildren - 1;
+                    $condition = $children[$conditionPos]->accept($this, $handle, $eldnah);
+                } else {
+                    $conditionPos = $nbchildren - 1;        // in do_while_loop condition is at the end
+                    $firstStmt = 0;
+                    $lastStmt = $nbchildren - 2;
+                    $condition = new \Hoathis\Lua\Model\Value(true); // simulate first condition
+                }
+                $val = null;
+                while (true === self::valueAsBool($condition->getValue())
+                        && !($val instanceof \Hoathis\Lua\Model\BreakStatement)) {      // break stop the loop
+                    for ($i = $firstStmt; $i <= $lastStmt && !($val instanceof \Hoathis\Lua\Model\BreakStatement); $i++) {
+                        $val = $children[$i]->accept($this, $handle, $eldnah);
+                        if ($val instanceof \Hoathis\Lua\Model\ReturnedValue) {
+                            return $val;            // there is a return in the while
+                        }
+                    }
+                    $condition = $children[$conditionPos]->accept($this, $handle, $eldnah);
+                }
+                break;
+
+            case '#for_loop':
+                $nbchildren = count($children);
+                $varName = $children[0]->accept($this, $handle, $eldnah);
+                $firstVal = $children[1]->accept($this, $handle, $eldnah)->getValue();
+                $lastVal = $children[2]->accept($this, $handle, $eldnah)->getValue();
+                if ($nbchildren === 5) {
+                    $step = $children[3]->accept($this, $handle, $eldnah)->getValue();
+                    $code = $children[4];
+                } else {
+                    $step = 1;
+                    $code = $children[3];
+                }
+                for ($i = $firstVal; $i <= $lastVal; $i += $step) {
+                    $this->setValueToSymbol($varName, $i, true);
+                    $stmtValue = $code->accept($this, $handle, $eldnah);
+                    if ($stmtValue instanceof \Hoathis\Lua\Model\BreakStatement) {
+                        break;
+                    } elseif ($stmtValue instanceof \Hoathis\Lua\Model\ReturnedValue) {
+                        return $stmtValue;
+                    }
+                }
+                break;
+
+            case '#break':
+                return new \Hoathis\Lua\Model\BreakStatement(null);
+                break;
+
+            case '#block':
+                $oldEnvironment = $this->_environment;
+                $data = $element->getData();
+                if (false === isset($data['env'])) {
+                    $data['env'] = new \Hoathis\Lua\Model\Environment('block', $this->_environment);
+                }
+                $this->_environment = $data['env'];
+                $nbchildren = count($children);
+                for ($i = 0; $i < $nbchildren; $i++) {
+                    $val = $children[$i]->accept($this, $handle, $eldnah);
+                    if ($val instanceof \Hoathis\Lua\Model\ReturnedValue) {
+                        $parent = $element->getParent();
+                        if (true === is_null($parent)) {
+                            $returnedValue = $val->getValue()->getPHPValue();
+                        } else {
+                            $returnedValue = $val;
+                        }
+                        break;
+                    } elseif ($val instanceof \Hoathis\Lua\Model\BreakStatement) {
+                        $parent = $element->getParent();
+                        if (true === is_null($parent)) {
+                            throw new \Hoathis\Lua\Exception\Interpreter(
+                            'Break found outside of loop.', 1);
+                        } else {
+                            $returnedValue = $val;
+                        }
+                        break;
+                    }
+                }
+                $this->_environment = $oldEnvironment;
+                if (isset($returnedValue)) {
+                    return $returnedValue;
                 }
                 break;
 
@@ -638,6 +723,30 @@ class Interpreter implements \Hoa\Visitor\Visit {
     public function getRoot ( ) {
 
         return $this->_environment;
+    }
+
+    public function setValueToSymbol($symbol, $value, $local = false) {
+        if (true === $local && false === $this->_environment->localExists($symbol)) {
+            $this->_environment->localSet($symbol, new \Hoathis\Lua\Model\Variable(
+                $symbol,
+                $this->_environment
+            ));
+        } elseif(false === isset($this->_environment[$symbol])) {
+            $this->_environment[$symbol] = new \Hoathis\Lua\Model\Variable(
+                $symbol,
+                $this->_environment
+            );
+        }
+        if ($value instanceof \Hoathis\Lua\Model\Value) {
+            if ($value->isReference()) {
+                //$value->copyAsReferenceTo($this->_environment[$symbol]);
+                $this->_environment[$symbol]->setValue($value->getReference());
+            } else {
+                $this->_environment[$symbol]->setValue($value);
+            }
+        } else {
+            $this->_environment[$symbol]->setValue(new \Hoathis\Lua\Model\Value($value));
+        }
     }
 }
 

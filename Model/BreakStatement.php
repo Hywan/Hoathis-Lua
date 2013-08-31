@@ -62,18 +62,8 @@ namespace Hoathis\Lua\Model {
  * @license    New BSD License
  */
 
-class ValueGroup extends Value {
+class BreakStatement {
 
-
-    public function __construct($value, $referenceType = self::SCALAR) {
-        parent::__construct($value, $referenceType);
-        $this->_referenceType = self::SCALAR;
-        $this->_value = array();
-    }
-
-    public function addValue($value) {
-        $this->_value[] = $value;
-    }
 
 }
 
