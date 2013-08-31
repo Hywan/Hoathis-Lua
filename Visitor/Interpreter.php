@@ -120,6 +120,8 @@ class Interpreter implements \Hoa\Visitor\Visit {
                     echo 'false';
                 } elseif (true === is_array($arg)) {
                     echo 'array';
+                } elseif (true === is_callable($arg) || $arg instanceof \Hoathis\Lua\Model\Closure) {
+                    echo 'function';
                 } else {
                     echo $arg;
                 }
@@ -358,7 +360,7 @@ class Interpreter implements \Hoa\Visitor\Visit {
 
             case '#return':
                 if (false === empty($children)) {
-                    $val = $children[0]->accept($this, $handle, $eldnah);
+                    $val = $children[0]->accept($this, $handle, self::AS_VALUE);
                     return new \Hoathis\Lua\Model\ReturnedValue($val);
                 }
                 break;
