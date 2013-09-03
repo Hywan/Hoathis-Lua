@@ -107,28 +107,8 @@ class Interpreter implements \Hoa\Visitor\Visit {
     public function __construct ( ) {
 
         $this->_environment = new \Hoathis\Lua\Model\Environment('_G');
-        // Temp declaration for debug
-        $this->_environment['print'] = new \Hoathis\Lua\Model\Variable('print', $this->_environment);
-        $this->_environment['print']->setValue(new \Hoathis\Lua\Model\Value(new \Hoathis\Lua\Model\Closure('print', $this->_environment, array(), function () {
-            $args = func_get_args();
-            $sep = '';
-            foreach ($args as $arg) {
-                echo $sep;
-                if (true === is_null($arg)) {
-                    echo 'nil';
-                } elseif (false === $arg) {
-                    echo 'false';
-                } elseif (true === is_array($arg)) {
-                    echo 'array';
-                } elseif (true === is_callable($arg) || $arg instanceof \Hoathis\Lua\Model\Closure) {
-                    echo 'function';
-                } else {
-                    echo $arg;
-                }
-                $sep = "\t";
-            }
-            echo PHP_EOL;
-        })));
+        $this->setFunction('print', array($this, 'stdPrint'));
+        $this->setFunction('ipairs', array($this, 'stdIpairs'));
 
         return;
     }
@@ -830,6 +810,50 @@ class Interpreter implements \Hoa\Visitor\Visit {
                 $this->setValueToSymbol($symbol, $value, $local);
             }
         }
+    }
+
+    public function setFunction($function_name, $callback) {
+        $this->_environment[$function_name] = new \Hoathis\Lua\Model\Variable($function_name, $this->_environment);
+        $this->_environment[$function_name]->setValue(new \Hoathis\Lua\Model\Value(new \Hoathis\Lua\Model\Closure($function_name, $this->_environment, array(), $callback)));
+    }
+
+    public function stdPrint() {
+        $args = func_get_args();
+        $sep = '';
+        foreach ($args as $arg) {
+            echo $sep;
+            if (true === is_null($arg)) {
+                echo 'nil';
+            } elseif (false === $arg) {
+                echo 'false';
+            } elseif (true === is_array($arg)) {
+                echo 'array';
+            } elseif (true === is_callable($arg) || $arg instanceof \Hoathis\Lua\Model\Closure) {
+                echo 'function';
+            } else {
+                echo $arg;
+            }
+            $sep = "\t";
+        }
+        echo PHP_EOL;
+    }
+
+    public function stdIpairs($table) {
+        $iter = new \Hoathis\Lua\Model\Closure('__iter', $this->_environment, array(), function ($a, $i) {
+            $i = $i + 1;
+            if (isset($a[$i])) {
+                $returnedValues = new \Hoathis\Lua\Model\ValueGroup(array());
+                $returnedValues->addValue(new \Hoathis\Lua\Model\Value($i));
+                $returnedValues->addValue(new \Hoathis\Lua\Model\Value($a[$i]));
+                return $returnedValues;
+            }
+            return null;
+        });
+        $returnedValues = new \Hoathis\Lua\Model\ValueGroup(array());
+        $returnedValues->addValue(new \Hoathis\Lua\Model\Value($iter));
+        $returnedValues->addValue(new \Hoathis\Lua\Model\Value($table, \Hoathis\Lua\Model\Value::REFERENCE));
+        $returnedValues->addValue(new \Hoathis\Lua\Model\Value(0));
+        return $returnedValues;
     }
 }
 
