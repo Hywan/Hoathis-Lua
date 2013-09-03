@@ -71,14 +71,21 @@ class Closure extends Environment {
 
     public function __construct ( $name, parent $parent,
                                   Array $parameters,
-                                  \Hoa\Compiler\Llk\TreeNode $body ) {
+                                  $body ) {
 
         parent::__construct($name, $parent);
 
         foreach($parameters as $parameter) {
-
-            $this[$parameter]              = new Variable($parameter, $this);
-            $this->_parameters[$parameter] = &$this[$parameter];
+            if ($parameter instanceof ValueGroup) {
+                $param2 = $parameter->getValue();
+                foreach ($param2 as $param) {
+                    $this->localSet($param, new Variable($param, $this));
+                    $this->_parameters[$param] = &$this[$param];
+                }
+            } else {
+                $this->localSet($parameter, new Variable($parameter, $this));
+                $this->_parameters[$parameter] = &$this[$parameter];
+            }
         }
 
         $this->_body = $body;
@@ -86,26 +93,41 @@ class Closure extends Environment {
         return;
     }
 
-    public function call ( Array $arguments, \Hoa\Visitor\Visit $interpreter ) {
+    public function call ( Array $arguments, \Hoathis\Lua\Visitor\Interpreter $interpreter ) {
+        $oldEnvironment = $interpreter->getRoot();
+        $interpreter->setRoot($this);
+    	if ($this->getBody() instanceof \Hoa\Compiler\Llk\TreeNode) {
 
-        foreach($this->_parameters as $parameter) {
+			foreach($this->_parameters as $parameter) {
 
-            $argument = current($arguments);
+				$argument = current($arguments);
 
-            if(false === $argument)
-                break;
+				if(false === $argument) {
+                    $parameter->setValue(new Value(null));
+                } else {
+    				$parameter->setValue($argument);
+                }
 
-            $parameter->setValue($argument);
+				next($arguments);
+			}
 
-            next($arguments);
-        }
-
-        $out = $this->getBody()->accept($interpreter);
-
-        foreach($this->_parameters as $parameter)
-            $parameter->setValue(null);
-
-        return $out;
+			$out = $this->getBody()->accept($interpreter);
+			foreach($this->_parameters as $parameter) {
+				$parameter->setValue(new Value(null));
+            }
+            $interpreter->setRoot($oldEnvironment);
+			return $out;
+		} elseif (true === is_callable($this->_body)) {
+            $argValues = array();
+            foreach ($arguments as $arg) {
+                $argValues[] = $arg->getPHPValue();
+            }
+            $interpreter->setRoot($oldEnvironment);
+			return call_user_func_array($this->_body, $argValues);
+		} else {
+            $interpreter->setRoot($oldEnvironment);
+			throw new \Hoathis\Lua\Exception\Interpreter('Invalid function body', 43, $this->_name);
+		}
     }
 
     public function getBody ( ) {

@@ -75,28 +75,50 @@ class Environment implements \ArrayAccess {
     }
 
     public function offsetExists ( $symbol ) {
-
-        return array_key_exists($symbol, $this->_symbols);
+        $foundInLocal = array_key_exists($symbol, $this->_symbols);
+        if (false === $foundInLocal && $this->_parent instanceof Environment) {
+            return $this->_parent->offsetExists($symbol);
+        }
+        return $foundInLocal;
     }
 
     public function offsetGet ( $symbol ) {
-
-        if(false === $this->offsetExists($symbol))
-            return null;
-
-        return $this->_symbols[$symbol];
+        if (true === array_key_exists($symbol, $this->_symbols)) {
+            return $this->_symbols[$symbol];
+        } elseif ($this->_parent instanceof Environment) {
+            return $this->_parent->offsetGet($symbol);
+        } else {
+            $var = new Variable($symbol, $this, new Value(null));
+            $var->setValue(new Value(null));
+            return $var;
+        }
     }
 
-    public function offsetSet ( $symbol, $value ) {
+    public function localExists($symbol) {
+        return array_key_exists($symbol, $this->_symbols);
+    }
 
+    public function localSet($symbol, $value) {
         $this->_symbols[$symbol] = $value;
+    }
 
+
+    public function offsetSet ( $symbol, $value ) {
+        if (false === array_key_exists($symbol, $this->_symbols)
+                && $this->_parent instanceof Environment) {     // variables are global by default
+            $this->_parent->offsetSet($symbol, $value);
+        } else {
+            $this->_symbols[$symbol] = $value;      // we are in global environment or the local symbol is declared
+        }
         return $this;
     }
 
     public function offsetUnset ( $symbol ) {
-
-        unset($this->_symbols[$symbol]);
+        if (array_key_exists($symbol, $this->_symbols)) {
+            unset($this->_symbols[$symbol]);
+        } elseif ($this->_parent instanceof Environment) {
+            $this->_parent->offsetUnset($symbol, $value);
+        }
 
         return;
     }
@@ -109,6 +131,14 @@ class Environment implements \ArrayAccess {
     public function getParent ( ) {
 
         return $this->_parent;
+    }
+
+    public function getSymbols() {
+        return $this->_symbols;
+    }
+
+    public function getDeclaredSymbols() {
+        return array_keys($this->_symbols);
     }
 }
 

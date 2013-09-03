@@ -41,30 +41,32 @@
 //
 
 %skip   blank         [\s\n]+
+%skip   block_comment \-\-\[\[(.|\n)*?\-\-\]\]
+%skip   comment       \-\-[^\n]*
 
 // Keywords.
-%token  and           and
-%token  break         break
-%token  do            do
-%token  else          else
-%token  elseif        elseif
-%token  end           end
-%token  false         false
-%token  for           for
-%token  function      function
-%token  goto          goto
-%token  if            if
-%token  in            in
-%token  local         local
-%token  nil           nil
-%token  not           not
-%token  or            or
-%token  repeat        repeat
-%token  return        return
-%token  then          then
-%token  true          true
-%token  until         until
-%token  while         while
+%token  and           and(?=\W)
+%token  break         break(?=\W)
+%token  do            do(?=\W)
+%token  elseif        elseif(?=\W)
+%token  else          else(?=\W)
+%token  end           end(?=\W)
+%token  false         false(?=\W)
+%token  for           for(?=\W)
+%token  function      function(?=\W)
+%token  goto          goto(?=\W)
+%token  if            if(?=\W)
+%token  in            in(?=\W)
+%token  local         local(?=\W)
+%token  nil           nil(?=\W)
+%token  not           not(?=\W)
+%token  or            or(?=\W)
+%token  repeat        repeat(?=\W)
+%token  return        return(?=\W)
+%token  then          then(?=\W)
+%token  true          true(?=\W)
+%token  until         until(?=\W)
+%token  while         while(?=\W)
 
 // Operators.
 %token  plus          \+
@@ -96,30 +98,28 @@
 %token  point         \.
 
 // Values.
-%token  string        ("|')(?<!\\\\)[^\1]+\1
-%token  number        \d+
+%token  string        ("|')(.*?)(?<!\\\\)\1
+%token  number        [\-+]?(0|[1-9]\d*)(\.\d+)?([eE][\+\-]?\d+)?
 
 // Misc.
-%token  comment       \-\-
 
 // Identifier.
 %token  identifier    [\w_]([\w\d_]+)?
 
 
-#chunk:
+chunk:
     block()
 
 block:
-    statement()* return_statement()?
+	statement()* return_statement()? #block
 
 statement:
     ::semicolon::
-  | variables() ::equal:: expressions() #assignation
+  | variables_set() ::equal:: expressions() #assignation
   | function_call()
   | label()
-  | ::break:: #break
   | ::goto:: <identifier> #goto
-  | ::do:: block() ::end:: #block
+  | ::do:: block() ::end::
   | ::while:: expression() ::do:: block() ::end:: #while_loop
   | ::repeat:: block() ::until:: expression() #do_while_loop
   |   ::if::   expression() ::then:: block()
@@ -134,7 +134,8 @@ statement:
   | ::local:: names() ( ::equal:: expressions() ) #assignation_local
 
 return_statement:
-    ::return:: expressions()? ::comma::? #return
+    ::return:: expressions()? ::semicolon::? #return
+  | ::break:: ::semicolon::? #break
 
 #label:
     ::dcolon:: <identifier> ::dcolon::
@@ -143,27 +144,43 @@ function_name:
     <identifier> ( ::point:: <identifier> )*
     ( ::colon:: <identifier> )?
 
-variables:
-    variable() ( ::comma:: variable() )*
+variables_get:
+	variable_get()
+  | (variable_get() ( ::comma:: variable_get() )* #expression_group)
+
+variables_set:
+    variable()
+	| ( variable() ( ::comma:: variable() )* #expression_group)
+
+variable_get:
+	variable()
+  | ::parenthesis_:: expression() ::_parenthesis::
+  | (
+		::parenthesis_:: expression() ::_parenthesis::
+	)
+	(
+        <bracket_> expression() ::_bracket:: #table_access
+      | ::point:: <identifier> #table_access
+	)+
 
 variable:
     <identifier>
-  | ::parenthesis_:: expression() ::_parenthesis::
   | (
         <identifier>
       | function_call()
-      | ::parenthesis_:: expression() ::_parenthesis::
     )
     (
-        ::bracket_:: expression() ::_bracket:: #table_access
+        <bracket_> expression() ::_bracket:: #table_access
       | ::point:: <identifier> #table_access
     )+
 
 names:
-    <identifier> ( ::comma:: <identifier> )*
+    <identifier>
+  | <identifier> ( ::comma:: <identifier> )* #expression_group
 
 expressions:
-    expression() ( ::comma:: expression() )*
+	expression()
+  | expression() ( ::comma:: expression() )* #expression_group
 
 expression:
     expression_primary()
@@ -193,29 +210,41 @@ expression_quinary:
 
 expression_senary:
     expression_term()
-    ( ( ::not:: #not | ::length:: #length | ::minus:: #negative )
+    ( ( ::not:: #not | ::length:: #length | ::minus:: #negative | ::pow:: #power | ::plus::)
       expression() )?
 
 expression_term:
-    ( ::pow:: #power ) expression()
+    (::minus:: #negative | ::plus:: | ::pow:: #power | ::not:: #not ) expression()
   | <nil>
   | <false>
   | <true>
-  | <number>
+  | (::minus:: #negative | ::plus:: | ::pow:: #power)? <number>
   | <string>
   | <tpoint>
-  | variable()
+  | variable_get()
   | function_call()
   | function_definition()
   | table_constructor()
 
+//#function_call:
+//    ( <identifier> | ::parenthesis_:: expression() ::_parenthesis:: )
+//    (
+//        <bracket_> expression() ::_bracket:: #table_access
+//      | ::point:: ( <identifier> | function_call() ) #table_access
+//    )*
+//    ( ::colon:: <identifier> )? arguments()
+
 #function_call:
-    ( <identifier> | ::parenthesis_:: expression() ::_parenthesis:: )
-    (
-        ::bracket_:: expression() ::_bracket:: #table_access
-      | ::point:: ( <identifier> | function_call() ) #table_access
-    )*
-    ( ::colon:: <identifier> )? arguments()
+    (<identifier>
+	 | ::parenthesis_:: expression() ::_parenthesis::
+     | table_access_function())
+     arguments()
+
+table_access_function:
+   ( <identifier> | ::parenthesis_:: expression() ::_parenthesis:: )
+	(	(<bracket_> expression() ::_bracket:: #byval) #table_access
+		| ::point:: ( <identifier> | function_call() ) #table_access )*
+	( ::colon:: <identifier> #table_access )?
 
 #arguments:
     ::parenthesis_:: expressions()? ::_parenthesis::
@@ -243,6 +272,6 @@ fields:
     ( ::comma:: | ::semicolon:: )?
 
 #field:
-    ::bracket_:: expression() ::_bracket:: ::equal:: expression()
-  | <identifier> ::equal:: expression()
-  | expression()
+  (  ::bracket_:: expression() ::_bracket:: ::equal:: #field_val
+  | <identifier> ::equal:: #field_name)?
+  expression()
