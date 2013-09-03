@@ -126,16 +126,7 @@ class Value {
     }
 
     public function getPHPValue() {
-        $value = $this->getValue();
-        if (true === is_array($value)) {
-            $result = array();
-            foreach ($value as $key => $val) {
-                $result[$key] = $val->getPHPValue();
-            }
-            return $result;
-        } else {
-            return $value;
-        }
+        return $this->getValue();
     }
 }
 

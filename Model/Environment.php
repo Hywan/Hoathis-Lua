@@ -133,6 +133,10 @@ class Environment implements \ArrayAccess {
         return $this->_parent;
     }
 
+    public function getSymbols() {
+        return $this->_symbols;
+    }
+
     public function getDeclaredSymbols() {
         return array_keys($this->_symbols);
     }

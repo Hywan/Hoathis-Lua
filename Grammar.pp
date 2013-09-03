@@ -41,6 +41,8 @@
 //
 
 %skip   blank         [\s\n]+
+%skip   block_comment \-\-\[\[(.|\n)*?\-\-\]\]
+%skip   comment       \-\-[^\n]*
 
 // Keywords.
 %token  and           and(?=\W)
@@ -68,7 +70,6 @@
 
 // Operators.
 %token  plus          \+
-%token  comment       \-\-[^\n]*
 %token  minus         \-
 %token  times         \*
 %token  div           /
@@ -110,7 +111,7 @@ chunk:
     block()
 
 block:
-    statement()* return_statement()? #block
+	statement()* return_statement()? #block
 
 statement:
     ::semicolon::

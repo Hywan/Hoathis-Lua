@@ -62,7 +62,7 @@ namespace Hoathis\Lua\Model {
  * @license    New BSD License
  */
 
-class ValueGroup extends Value {
+class ValueGroup extends Value implements \ArrayAccess {
 
 
     public function __construct($value, $referenceType = self::SCALAR) {
@@ -73,6 +73,31 @@ class ValueGroup extends Value {
 
     public function addValue($value) {
         $this->_value[] = $value;
+    }
+
+    public function offsetExists($offset) {
+        return array_key_exists($offset, $this->_value);
+    }
+
+    public function offsetGet($offset) {
+        return $this->_value[$offset];
+    }
+
+    public function offsetSet($offset, $value) {
+        $this->_value[$offset] = $value;
+    }
+
+    public function offsetUnset($offset) {
+        unset($this->_value[$offset]);
+    }
+
+    public function getPHPValue() {
+        $value = $this->getValue();
+        $result = array();
+        foreach ($value as $key => $val) {
+            $result[$key] = $val->getPHPValue();
+        }
+        return $result;
     }
 
 }
